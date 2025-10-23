@@ -334,45 +334,34 @@ def health_check():
     }), 200
 
 @app.route('/webhook', methods=['POST'])
-def admission_assistant_webhook():
-    """Main webhook endpoint"""
+def webhook():
+    """Handle messages from frontend or test client (not Dialogflow)"""
     try:
         req = request.get_json(silent=True, force=True)
-        query_text = req.get('query', '') or req.get('queryText', '')
+        print("📥 Incoming payload:", req)
+
+        # Accept both Dialogflow and plain JSON
+        query_text = (
+            req.get('queryResult', {}).get('queryText')
+            if isinstance(req.get('queryResult'), dict)
+            else req.get('message') or req.get('query') or req.get('text')
+        )
 
         if not query_text:
-            return jsonify({
-                'status': 'error',
-                'message': "No query provided"
-            }), 400
+            return jsonify({"reply": "⚠️ No input text found in request", "status": "error"}), 400
 
-        print(f"📥 Query: {query_text}")
+        print(f"✅ User query: {query_text}")
 
+        # RAG + LLM call
         relevant_docs = vector_db.search(query_text, top_k=4)
-
-        if not relevant_docs:
-            return jsonify({
-                'status': 'ok',
-                'reply': "Hmm, I couldn't find any info about that. Could you rephrase? 🤔"
-            })
-
-        context = "\n\n".join(relevant_docs)
-        print(f"✓ Retrieved {len(relevant_docs)} docs")
-
+        context = "\n\n".join(relevant_docs) if relevant_docs else ""
         response_text = call_llm(query_text, context)
-        print(f"✓ Response generated")
 
-        return jsonify({
-            'status': 'ok',
-            'reply': response_text
-        })
+        return jsonify({"reply": response_text, "status": "ok"})
 
     except Exception as e:
-        print(f"❌ Error: {e}")
-        return jsonify({
-            'status': 'error',
-            'message': str(e)
-        }), 500
+        print("❌ Webhook Error:", e)
+        return jsonify({"reply": "Sorry, something went wrong 🤖", "status": "error"}), 500
 
 @app.route('/test', methods=['GET', 'POST'])
 def test_endpoint():
