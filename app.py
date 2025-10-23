@@ -326,45 +326,49 @@ def health_check():
     }), 200
 
 @app.route('/webhook', methods=['POST'])
-def dialogflow_webhook():
-    """Main webhook - Pure RAG, no lead logic"""
-    
+def admission_assistant_webhook():
+    """Webhook endpoint for RAG-based assistant (no Dialogflow)"""
+
     try:
         req = request.get_json(silent=True, force=True)
-        query_text = req.get('queryResult', {}).get('queryText', '')
-        
+        query_text = req.get('query', '') or req.get('queryText', '')
+
         if not query_text:
             return jsonify({
-                'fulfillmentText': 'Sorry, I didn\'t get that. Could you ask again?'
-            })
-        
+                'status': 'error',
+                'message': "No query provided. Send JSON with {'query': 'your question'}"
+            }), 400
+
         print(f"📥 Query: {query_text}")
-        
-        # Retrieve relevant documents
+
+        # Search vector DB
         relevant_docs = vector_db.search(query_text, top_k=4)
-        
+
         if not relevant_docs:
             return jsonify({
-                'fulfillmentText': 'Hmm, I couldn\'t find specific info about that. Could you rephrase? 🤔'
+                'status': 'ok',
+                'reply': "Hmm, I couldn't find any info about that. Could you rephrase? 🤔"
             })
-        
+
         context = "\n\n".join(relevant_docs)
         print(f"✓ Retrieved {len(relevant_docs)} docs")
-        
-        # Generate response
+
+        # Get LLM response
         response_text = call_llm(query_text, context)
         print(f"✓ Response: {response_text[:80]}...")
-        
+
         return jsonify({
-            'fulfillmentText': response_text,
-            'source': 'webhook'
+            'status': 'ok',
+            'reply': response_text
         })
-    
+
     except Exception as e:
         print(f"❌ Error: {e}")
         return jsonify({
-            'fulfillmentText': 'Oops! Something went wrong. Try again! 🔄'
+            'status': 'error',
+            'message': str(e)
         }), 500
+
 
 @app.route('/test', methods=['POST'])
 def test_endpoint():
