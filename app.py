@@ -396,11 +396,18 @@ def list_documents():
 # ============================================
 # RUN SERVER
 # ============================================
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
+# ============================================
+# RUN SERVER (Render-compatible)
+# ============================================
+def start():
+    """Start Flask app for Render"""
+    port = int(os.environ.get("PORT", 5000))
     print(f"🚀 RTC Scholar (Clean RAG) starting on port {port}")
     print(f"📊 Documents: {len(vector_db.documents)}")
-    print(f"🔑 API Key: {bool(OPENROUTER_API_KEY)}")
-    print(f"📝 Lead collection: Handled by frontend + Formspree")
-    
-    app.run(host='0.0.0.0', port=port, debug=False)
+    print(f"🔑 API Key configured: {bool(OPENROUTER_API_KEY)}")
+    print(f"📝 Lead collection handled on frontend")
+    app.run(host="0.0.0.0", port=port)
+
+if __name__ == "__main__":
+    start()
+
